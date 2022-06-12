@@ -61,7 +61,6 @@ def find_requirements(path: Union[str, Path]) -> List[DetectedRequirement]:
             return requirements
         except CouldNotParseRequirements:
             pass
-
     poetry_toml = path / "pyproject.toml"
     if poetry_toml.exists() and poetry_toml.is_file():
         try:
@@ -72,7 +71,7 @@ def find_requirements(path: Union[str, Path]) -> List[DetectedRequirement]:
         except CouldNotParseRequirements:
             pass
 
-    for reqfile_name in ("requirements.txt", "requirements.pip"):
+    for reqfile_name in ("requirements.txt", "requirements.pip", "requires.txt"):
         reqfile = path / reqfile_name
         if reqfile.exists and reqfile.is_file():
             try:
