@@ -1,0 +1,13 @@
+packages
+
+error.txt
+get_packages.lock
+get_packages.log
+nohup.out
+
+packages.txt
+graph.png
+requirements.txt
+requirements.csv
+verify.out
+verified.out
