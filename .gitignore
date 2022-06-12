@@ -1,5 +1,8 @@
 packages
 
+__pycache__
+*/__pycache__
+
 error.txt
 get_packages.lock
 get_packages.log
