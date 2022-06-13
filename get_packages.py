@@ -1,7 +1,6 @@
 import logging
 import math
 import os
-import random
 import shutil
 import signal
 import tarfile
@@ -35,17 +34,16 @@ headers = {
 }
 
 proxy = {
-    'http': '172.31.30.45:8888',
-    'https': '172.31.30.45:8888'
+
 }
 
 
 def spider(url):
-    return requests.get(url, headers=headers, proxies=random.choice(proxy))
+    return requests.get(url, headers=headers, proxies=proxy)
 
 
 def download(url, path, chunk_s=1024):
-    req = requests.get(url, stream=True, headers=headers, proxies=random.choice(proxy))
+    req = requests.get(url, stream=True, headers=headers, proxies=proxy)
     with open(path, 'wb') as fh:
         for chunk in req.iter_content(chunk_size=chunk_s):
             if chunk:
