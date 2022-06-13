@@ -14,13 +14,12 @@ from cloghandler import ConcurrentRotatingFileHandler
 
 
 class SpiderProcess(Process):
-    def __init__(self, packages, packages_own):
+    def __init__(self, packages):
         Process.__init__(self)
         self.packages = packages
-        self.packages_own = packages_own
 
     def run(self):
-        get(self.packages, self.packages_own)
+        get(self.packages)
 
 
 tsinghua_url = 'https://pypi.tuna.tsinghua.edu.cn/simple'
@@ -53,8 +52,15 @@ def download(url, path, chunk_s=1024):
 def get_packages_list():
     filename = "packages.txt"
     if os.path.exists(filename):
-        with open(filename, "r") as file:
-            return file.readlines()
+        shrink_file = 's_packages.txt'
+        with open(filename, 'r') as origin:
+            with open(shrink_file, 'w') as shrink:
+                for line in origin.readlines():
+                    line = line.strip()
+                    if not os.path.exists(os.path.join('packages', line)):
+                        shrink.write(line + '\n')
+                shrink.seek(0)
+                return shrink.readlines()
     else:
         req = spider(base_url)
         html = req.text
@@ -78,13 +84,12 @@ def multi_get(splice=cpu_count()):
     signal.signal(signal.SIGTERM, term)
     ensure_dir('packages')
     packages = get_packages_list()
-    packages_own = set(os.listdir('packages'))
-    if len(packages_own) == len(packages):
+    if len(packages) == 0:
         return
     n = math.ceil(len(packages) / splice)
     processes = []
     for i in range(0, len(packages), n):
-        process = SpiderProcess(packages[i:i + n], packages_own)
+        process = SpiderProcess(packages[i:i + n])
         process.daemon = True
         process.start()
         processes.append(process)
@@ -95,13 +100,11 @@ def multi_get(splice=cpu_count()):
         print(str(e))
 
 
-def get(packages, packages_own):
+def get(packages):
     for i, package in enumerate(packages):
         package = package.strip()
         # logging.info('Extracting package {} ~ {} / {}'.format(package, i + 1, len(packages)))
         # logging.info(time.time())
-        if package in packages_own:
-            continue
         try:
             extract_package(package)
         except Exception as e:
