@@ -43,6 +43,7 @@ def spider(url):
             html = requests.get(url, headers=headers, proxies=proxy)
             return html
         except:
+            time.sleep(3)
             pass
 
 
@@ -56,6 +57,7 @@ def download(url, path, chunk_s=1024):
                         fh.write(chunk)
             return
         except:
+            time.sleep(3)
             pass
 
 
