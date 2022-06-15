@@ -24,7 +24,7 @@ class SpiderProcess(Process):
 
 tsinghua_url = 'https://pypi.tuna.tsinghua.edu.cn/simple'
 aliyun_url = 'https://mirrors.aliyun.com/pypi/simple/'
-base_url = aliyun_url
+base_url = tsinghua_url
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.0.0 '
@@ -38,15 +38,25 @@ proxy = {
 
 
 def spider(url):
-    return requests.get(url, headers=headers, proxies=proxy)
+    while True:
+        try:
+            html = requests.get(url, headers=headers, proxies=proxy)
+            return html
+        except:
+            pass
 
 
 def download(url, path, chunk_s=1024):
-    req = requests.get(url, stream=True, headers=headers, proxies=proxy)
-    with open(path, 'wb') as fh:
-        for chunk in req.iter_content(chunk_size=chunk_s):
-            if chunk:
-                fh.write(chunk)
+    while True:
+        try:
+            req = requests.get(url, stream=True, headers=headers, proxies=proxy)
+            with open(path, 'wb') as fh:
+                for chunk in req.iter_content(chunk_size=chunk_s):
+                    if chunk:
+                        fh.write(chunk)
+            return
+        except:
+            pass
 
 
 def get_packages_list():
@@ -59,7 +69,7 @@ def get_packages_list():
                     line = line.strip()
                     if not os.path.exists(os.path.join('packages', line)):
                         shrink.write(line + '\n')
-                shrink.seek(0)
+            with open(shrink_file, 'r') as shrink:
                 return shrink.readlines()
     else:
         req = spider(base_url)
@@ -84,6 +94,7 @@ def multi_get(splice=cpu_count()):
     signal.signal(signal.SIGTERM, term)
     ensure_dir('packages')
     packages = get_packages_list()
+    print(len(packages))
     if len(packages) == 0:
         return
     n = math.ceil(len(packages) / splice)
@@ -154,6 +165,7 @@ def extract_package(name):
     html = spider(url).text
     soup = BeautifulSoup(html, "html.parser")
     edition_list = soup.findAll('a')
+    ensure_dir('packages/{}'.format(name))
     for edition in edition_list:
         edition_name = str(edition.string)
         edition_url = str(edition.get('href'))

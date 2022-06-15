@@ -10,6 +10,7 @@ get_packages.log
 nohup.out
 
 packages.txt
+s_packages.txt
 graph.png
 requirements.*
 requirements.txt
