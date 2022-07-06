@@ -3,18 +3,15 @@ packages
 __pycache__
 */__pycache__
 
-error.txt
-parse_error.txt
-get_packages.lock
-get_packages.log
 nohup.out
 
-packages.txt
-s_packages.txt
-graph.png
 requirements.*
-requirements.txt
-requirements.xslx
-requirements.csv
-verify.out
-verified.out
+
+*.lock
+*.log
+*.txt
+*.xslx
+*.csv
+*.png
+*.zip
+*.out

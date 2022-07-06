@@ -35,22 +35,37 @@ def compare_edition(a, b):
 
 def parse_relation(line):
     relations = []
-    # cannot change the order
-    types = ['<=', '>=', '<', '>', '~=', '==']
-    for t in types:
-        if t in line:
-            package = line[0:line.find(t)]
-            dot = line.find(',')
-            if dot != -1:
-                for r in parse_relation(line[dot + 1:]):
-                    r[0] = package
-                    relations.append(r)
-                relations.append([package, t, line[line.find(t) + len(t):dot]])
-            else:
-                relations.append([package, t, line[line.find(t) + len(t):]])
-            break
+    # types = ['<=', '<', '>=', '>', '~=', '==']
+    f = ['<', '>', '~', '=']
+    requirement = ''
+    r = ''
+    re = -1
+    relation = []
+    for i in range(0, len(line)):
+        if line[i] in f:
+            if len(relations) == 0 and len(requirement) == 0:
+                requirement = line[:i].strip()
+                relation.append(requirement)
+            r = r + line[i]
+        else:
+            if len(r) > 0:
+                re = i
+                if len(relation) == 1:
+                    relation.append(r)
+                else:
+                    relation[1] = r
+                r = ''
+            if line[i] == ',':
+                relation.append(line[re:i].strip())
+                relations.append(list(relation))
     if len(relations) == 0:
-        relations.append([line, 'latest', 'NaN'])
+        if len(relation) == 0:
+            relation = [line.strip(), 'latest', 'NaN']
+        else:
+            relation.append(line[re:].strip())
+    else:
+        relation[2] = line[re:].strip()
+    relations.append(relation)
     return relations
 
 
@@ -97,9 +112,9 @@ def parse():
                         datadict['requirement'].append(relation[0])
                         datadict['constraint'].append(relation[2])
                         datadict['type'].append(relation[1])
-                except ValueError as e:
+                except Exception as e:
                     print(str(e))
-                    pass
+                    return
     length = len(datadict['requirement'])
     for i in range(0, length):
         if datadict['type'][i] == 'latest':
@@ -107,8 +122,9 @@ def parse():
     # Convert to dataframe
     df = pd.DataFrame(data=datadict)
     df.head()
-    df.to_excel('requirements.xlsx', index_label=False)
+    df.to_csv('requirements.csv', index=False)
 
 
 if __name__ == '__main__':
     parse()
+    # print(parse_relation('pandas'))

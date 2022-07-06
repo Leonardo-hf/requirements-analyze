@@ -32,15 +32,14 @@ headers = {
     'Connection': 'close'
 }
 
-proxy = {
-
-}
+# proxy = {'http': '172.31.30.45:8888',
+#          'https': '172.31.30.45:8888'}
 
 
 def spider(url):
     while True:
         try:
-            html = requests.get(url, headers=headers, proxies=proxy)
+            html = requests.get(url, headers=headers)
             return html
         except:
             time.sleep(3)
@@ -50,7 +49,7 @@ def spider(url):
 def download(url, path, chunk_s=1024):
     while True:
         try:
-            req = requests.get(url, stream=True, headers=headers, proxies=proxy)
+            req = requests.get(url, stream=True, headers=headers)
             with open(path, 'wb') as fh:
                 for chunk in req.iter_content(chunk_size=chunk_s):
                     if chunk:

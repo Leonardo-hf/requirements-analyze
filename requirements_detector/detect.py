@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import List, Union
 
 import toml
-from semver import parse_constraint
 
 from .exceptions import CouldNotParseRequirements, RequirementsNotFound
 from .handle_setup import from_setup_py
@@ -61,15 +60,15 @@ def find_requirements(path: Union[str, Path]) -> List[DetectedRequirement]:
             return requirements
         except CouldNotParseRequirements:
             pass
-    poetry_toml = path / "pyproject.toml"
-    if poetry_toml.exists() and poetry_toml.is_file():
-        try:
-            requirements = from_pyproject_toml(poetry_toml)
-            if len(requirements) > 0:
-                requirements.sort()
-                return requirements
-        except CouldNotParseRequirements:
-            pass
+    # poetry_toml = path / "pyproject.toml"
+    # if poetry_toml.exists() and poetry_toml.is_file():
+    #     try:
+    #         requirements = from_pyproject_toml(poetry_toml)
+    #         if len(requirements) > 0:
+    #             requirements.sort()
+    #             return requirements
+    #     except CouldNotParseRequirements:
+    #         pass
 
     for reqfile_name in ("requirements.txt", "requirements.pip", "requires.txt"):
         reqfile = path / reqfile_name
@@ -97,28 +96,28 @@ def find_requirements(path: Union[str, Path]) -> List[DetectedRequirement]:
     raise RequirementsNotFound
 
 
-def from_pyproject_toml(toml_file: Union[str, Path]) -> List[DetectedRequirement]:
-    requirements = []
-
-    if isinstance(toml_file, str):
-        toml_file = Path(toml_file)
-
-    parsed = toml.load(toml_file)
-    poetry_section = parsed.get("tool", {}).get("poetry", {})
-    dependencies = poetry_section.get("dependencies", {})
-    dependencies.update(poetry_section.get("dev-dependencies", {}))
-
-    for name, spec in dependencies.items():
-        if name.lower() == "python":
-            continue
-        if isinstance(spec, dict):
-            spec = spec["version"]
-        parsed = str(parse_constraint(spec))
-        if "," not in parsed and "<" not in parsed and ">" not in parsed and "=" not in parsed:
-            parsed = f"=={parsed}"
-        requirements.append(DetectedRequirement.parse(f"{name}{parsed}", toml_file))
-
-    return requirements
+# def from_pyproject_toml(toml_file: Union[str, Path]) -> List[DetectedRequirement]:
+#     requirements = []
+#
+#     if isinstance(toml_file, str):
+#         toml_file = Path(toml_file)
+#
+#     parsed = toml.load(toml_file)
+#     poetry_section = parsed.get("tool", {}).get("poetry", {})
+#     dependencies = poetry_section.get("dependencies", {})
+#     dependencies.update(poetry_section.get("dev-dependencies", {}))
+#
+#     for name, spec in dependencies.items():
+#         if name.lower() == "python":
+#             continue
+#         if isinstance(spec, dict):
+#             spec = spec["version"]
+#         parsed = str(parse_constraint(spec))
+#         if "," not in parsed and "<" not in parsed and ">" not in parsed and "=" not in parsed:
+#             parsed = f"=={parsed}"
+#         requirements.append(DetectedRequirement.parse(f"{name}{parsed}", toml_file))
+#
+#     return requirements
 
 
 def from_requirements_txt(requirements_file: Union[str, Path]) -> List[DetectedRequirement]:

@@ -2,6 +2,7 @@ import math
 import os
 import re
 import signal
+import string
 import time
 from multiprocessing import Process, cpu_count
 
@@ -67,7 +68,7 @@ def merge():
 def verify(packages):
     suffix = ['tar.gz', 'tar.bz2', 'zip', 'egg']
     for package in packages:
-        trans = str.maketrans('._-', '   ')
+        trans = str.maketrans('', '', string.punctuation + ' ')
         editions = list(
             filter(lambda name: str(package).translate(trans) in str(name).lower().translate(trans),
                    os.listdir('packages/{}'.format(package))))
@@ -83,7 +84,7 @@ def verify(packages):
             p = p.string
             for s in suffix:
                 if str(p).endswith(s):
-                    editions_set.add(p[0:p.find(s) - 1])
+                    editions_set.add(p[0:p.rfind(s) - 1])
                     break
         # print('{}: {}'.format(len(editions), editions))
         # print('{}: {}'.format(len(editions_set), editions_set))

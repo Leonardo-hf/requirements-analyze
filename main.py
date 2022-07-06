@@ -8,10 +8,11 @@ from pretreat import pretreat
 from analyze import draw
 from pypi.verify import verify
 
+
 if __name__ == '__main__':
     # shutil.rmtree('packages/1')
-    # extract_package('crds')
-    verify(['crds'])
+    # extract_package('rls-of')
+    # verify(['rls-of'])
     # pretreat()
     # parse()
     # draw()
