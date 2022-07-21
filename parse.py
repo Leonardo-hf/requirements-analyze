@@ -76,7 +76,10 @@ def parse():
         pass
     with open('requirements.txt', 'r') as infile:
         new_package = True
+        i = 1
         for line in infile:
+            print(i)
+            i += 1
             line = line.strip()
             if line == '':
                 new_package = True
@@ -113,8 +116,9 @@ def parse():
                         datadict['constraint'].append(relation[2])
                         datadict['type'].append(relation[1])
                 except Exception as e:
-                    print(str(e))
-                    return
+                    with open('parse_error.txt', 'a') as error:
+                        error.write('error occurs when parse_relation {} of package: {}\n'
+                                    .format(line, package_name))
     length = len(datadict['requirement'])
     for i in range(0, length):
         if datadict['type'][i] == 'latest':
