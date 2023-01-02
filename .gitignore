@@ -1,11 +1,7 @@
-packages
 
 __pycache__
 */__pycache__
 
-nohup.out
-
-requirements.*
 
 *.lock
 *.log
@@ -18,3 +14,8 @@ requirements.*
 *.gz
 
 test*
+
+files/
+pypi/
+rank/
+rank2/

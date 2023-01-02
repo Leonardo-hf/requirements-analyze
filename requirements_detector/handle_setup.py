@@ -81,9 +81,7 @@ class SetupWalker:
 
         # if we've fallen off the bottom with nothing in our list of requirements,
         #  we simply didn't find anything useful
-        if len(found_requirements) > 0:
-            return found_requirements
-        raise CouldNotParseRequirements
+        return found_requirements
 
 
 def from_setup_py(setup_file: Union[str, Path]):
