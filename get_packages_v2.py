@@ -62,47 +62,45 @@ def get_packages_list():
 def _extract_tar_files(package_file, path):
     try:
         tar_file = tarfile.open(name=package_file, mode='r:*', encoding='utf-8')
+        ensure_dir(path)
+        for member in tar_file.getmembers():
+            if not member.isfile():
+                continue
+            f_name = member.name[member.name.rfind('/') + 1:]
+            if f_name in ('setup.py', 'setup.cfg', 'requires.txt', 'pyproject.toml') or 'requirements' in f_name:
+                with open('{}/{}'.format(path, f_name), 'wb') as file:
+                    with tar_file.extractfile(member.name) as w:
+                        file.write(w.read())
+            paths = member.path.split('/')
+            if len(paths) > 1 and paths[-2] == 'requirements':
+                ensure_dir('{}/requirements'.format(path))
+                with open('{}/requirements/{}'.format(path, f_name), 'wb') as file:
+                    with tar_file.extractfile(member.name) as w:
+                        file.write(w.read())
     except Exception as e:
         print('extract error on {} : {}'.format(package_file, str(e)))
-        return
-    ensure_dir(path)
-    for member in tar_file.getmembers():
-        if not member.isfile():
-            continue
-        f_name = member.name[member.name.rfind('/') + 1:]
-        if f_name in ('setup.py', 'setup.cfg', 'requires.txt', 'pyproject.toml') or 'requirements' in f_name:
-            with open('{}/{}'.format(path, f_name), 'wb') as file:
-                with tar_file.extractfile(member.name) as w:
-                    file.write(w.read())
-        paths = member.path.split('/')
-        if len(paths) > 1 and paths[-2] == 'requirements':
-            ensure_dir('{}/requirements'.format(path))
-            with open('{}/requirements/{}'.format(path, f_name), 'wb') as file:
-                with tar_file.extractfile(member.name) as w:
-                    file.write(w.read())
 
 
 def _extract_zip_files(package_file, path):
     try:
         z_file = zipfile.ZipFile(package_file, "r")
+        ensure_dir(path)
+        for name in z_file.namelist():
+            if name.endswith('/'):
+                continue
+            f_name = name[name.rfind('/') + 1:]
+            if f_name in ('setup.py', 'setup.cfg', 'requires.txt', 'pyproject.toml') or 'requirements' in f_name:
+                with open('{}/{}'.format(path, f_name), 'wb') as file:
+                    with z_file.open(name, 'r') as w:
+                        file.write(w.read())
+            paths = name.split('/')
+            if len(paths) > 1 and paths[-2] == 'requirements':
+                ensure_dir('{}/requirements'.format(path))
+                with open('{}/requirements/{}'.format(path, f_name), 'wb') as file:
+                    with z_file.open(name, 'r') as w:
+                        file.write(w.read())
     except Exception as e:
         print('extract error on {} : {}'.format(package_file, str(e)))
-        return
-    ensure_dir(path)
-    for name in z_file.namelist():
-        if name.endswith('/'):
-            continue
-        f_name = name[name.rfind('/') + 1:]
-        if f_name in ('setup.py', 'setup.cfg', 'requires.txt', 'pyproject.toml') or 'requirements' in f_name:
-            with open('{}/{}'.format(path, f_name), 'wb') as file:
-                with z_file.open(name, 'r') as w:
-                    file.write(w.read())
-        paths = name.split('/')
-        if len(paths) > 1 and paths[-2] == 'requirements':
-            ensure_dir('{}/requirements'.format(path))
-            with open('{}/requirements/{}'.format(path, f_name), 'wb') as file:
-                with z_file.open(name, 'r') as w:
-                    file.write(w.read())
 
 
 def extract_package(name):
