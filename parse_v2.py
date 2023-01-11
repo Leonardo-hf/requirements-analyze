@@ -35,7 +35,6 @@ def parse(path='files/f_requirements_pypi.csv'):
     df.to_csv(path, index=False)
 
 
-# 351327 224350 810922
 
 
 

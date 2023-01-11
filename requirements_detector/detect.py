@@ -20,7 +20,6 @@ __all__ = [
     "CouldNotParseRequirements",
 ]
 
-
 _PIP_OPTIONS = (
     "-i",
     "--index-url",
@@ -30,7 +29,6 @@ _PIP_OPTIONS = (
     "--find-links",
     "-r",
 )
-
 
 P = Union[str, Path]
 
@@ -62,37 +60,41 @@ def find_requirements(path: P) -> List[DetectedRequirement]:
         try:
             requirements = from_setup_py(setup_py)
             requirements.sort()
-            return requirements
+            if len(requirements) != 0:
+                return requirements
         except CouldNotParseRequirements:
             pass
 
-    # poetry_toml = path / "pyproject.toml"
-    # if poetry_toml.exists() and poetry_toml.is_file():
-    #     try:
-    #         requirements = from_pyproject_toml(poetry_toml)
-    #         if len(requirements) > 0:
-    #             requirements.sort()
-    #             return requirements
-    #     except CouldNotParseRequirements:
-    #         pass
+    poetry_toml = path / "pyproject.toml"
+    if poetry_toml.exists() and poetry_toml.is_file():
+        try:
+            requirements = from_pyproject_toml(poetry_toml)
+            if len(requirements) > 0:
+                requirements.sort()
+                return requirements
+        except CouldNotParseRequirements:
+            pass
 
-    for reqfile_name in ("requires.txt", "requirements.txt", "requirements.pip"):
+    for reqfile_name in ("requirements.txt", "requirements.pip"):
         reqfile = path / reqfile_name
         if reqfile.exists and reqfile.is_file():
             try:
-                requirements += from_requirements_txt(reqfile)
-            except CouldNotParseRequirements as e:
+                requirements = from_requirements_txt(reqfile)
+                if len(requirements) > 0:
+                    requirements.sort()
+                    return requirements
+            except CouldNotParseRequirements:
                 pass
 
-    # requirements_dir = path / "requirements"
-    # if requirements_dir.exists() and requirements_dir.is_dir():
-    #     from_dir = from_requirements_dir(requirements_dir)
-    #     if from_dir is not None:
-    #         requirements += from_dir
-    #
-    # from_blob = from_requirements_blob(path)
-    # if from_blob is not None:
-    #     requirements += from_blob
+    requirements_dir = path / "requirements"
+    if requirements_dir.exists() and requirements_dir.is_dir():
+        from_dir = from_requirements_dir(requirements_dir)
+        if from_dir is not None:
+            requirements += from_dir
+
+    from_blob = from_requirements_blob(path)
+    if from_blob is not None:
+        requirements += from_blob
 
     requirements = list(set(requirements))
     if len(requirements) > 0:
@@ -111,13 +113,20 @@ def from_pyproject_toml(toml_file: P) -> List[DetectedRequirement]:
     parsed = toml.load(toml_file)
     poetry_section = parsed.get("tool", {}).get("poetry", {})
     dependencies = poetry_section.get("dependencies", {})
-    dependencies.update(poetry_section.get("dev-dependencies", {}))
+    # dependencies.update(poetry_section.get("dev-dependencies", {}))
 
     for name, spec in dependencies.items():
         if name.lower() == "python":
             continue
         if isinstance(spec, dict):
             spec = spec["version"]
+            if "version" in spec:
+                spec = spec["version"]
+            else:
+                req = DetectedRequirement.parse(f"{name}", toml_file)
+                if req is not None:
+                    requirements.append(req)
+                    continue
         parsed_spec = str(parse_constraint(spec))
         if "," not in parsed_spec and "<" not in parsed_spec and ">" not in parsed_spec and "=" not in parsed_spec:
             parsed_spec = f"=={parsed_spec}"
@@ -182,7 +191,7 @@ def from_requirements_blob(path: P) -> List[DetectedRequirement]:
     for entry in path.iterdir():
         if not entry.is_file():
             continue
-        m = re.match(r"^(\w*)req(uirement)?s(\w*)\.txt$", entry.name)
+        m = re.match(r"^(\w*)req(uire|uirement)?s(\w*)\.txt$", entry.name)
         if m is None:
             continue
         if m.group(1).startswith("test") or m.group(3).endswith("test"):
@@ -190,3 +199,25 @@ def from_requirements_blob(path: P) -> List[DetectedRequirement]:
         requirements += from_requirements_txt(entry)
 
     return requirements
+
+
+def from_setup_cfg(requirements_file: P) -> List[DetectedRequirement]:
+    requirements = []
+    if isinstance(requirements_file, str):
+        requirements_file = Path(requirements_file)
+    with requirements_file.open() as f:
+        start = False
+        for req in f.readlines():
+            if req.strip().startswith('install_requires'):
+                start = True
+                continue
+            if start:
+                if not req.startswith('\t'):
+                    break
+                detected = DetectedRequirement.parse(req.strip(), requirements_file)
+                if detected is None:
+                    continue
+                requirements.append(detected)
+    return requirements
+
+

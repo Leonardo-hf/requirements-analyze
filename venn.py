@@ -1,11 +1,10 @@
-import sys
-
 from matplotlib import pyplot as plt
 from matplotlib_venn import venn2, venn2_circles, venn3, venn3_circles
 
 from pypi.util import get_50_nodes
 
 
+# draw the venn diagram of two or three sorted results.
 def draw_venn(items):
     sets = []
     for item in items:
@@ -31,6 +30,7 @@ def draw_venn(items):
     plt.show()
 
 
+# get the intersection of multiple sorted results.
 def get_intersection(items):
     sets = []
     for item in items:
@@ -41,6 +41,7 @@ def get_intersection(items):
     return inter
 
 
+# get the difference between two sorted results.
 def get_2_diff(first, second):
     f = set(get_50_nodes(first))
     s = set(get_50_nodes(second))
@@ -49,25 +50,3 @@ def get_2_diff(first, second):
     print('diff {} from {}, {}'.format(first, second, a))
     print('diff {} from {}, {}'.format(second, first, b))
     return a, b
-
-
-if __name__ == '__main__':
-    l = ['pagerank', 'local-centrality']
-    all = ['pagerank', 'betweenness', 'degree', 'voterank', 'closeness', 'local-centrality']
-    res = []
-    draw_venn(l)
-    get_2_diff('local-centrality', 'pagerank')
-    # print(get_intersection(all))
-    sys.exit()
-    for i in range(0, len(all)):
-        for p in range(i + 1, len(all)):
-            t = get_intersection([all[i], all[p]])
-            tt = ''
-            for q in t:
-                tt = tt + q + ' '
-            res.append(('{}-{}, {}%, {}, {}'.format(all[i], all[p], len(t) * 2, len(t), tt), len(t)))
-    res.sort(key=lambda r: r[1])
-    for r in res:
-        print(r[0])
-# draw_venn(l)
-# print(get_intersection(all))

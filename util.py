@@ -22,6 +22,7 @@ def get_all_50_nodes():
     return names
 
 
+# get the top few of the sorted results.
 def get_nodes(target, number=50):
     names = []
     with open('rank/{}.txt'.format(target), 'r') as rank:
@@ -56,7 +57,8 @@ def get_rank(target):
     return rank
 
 
-def get_graph(source='files/e_requirements_pypi.csv', min=6):
+# get graph of dependencies.
+def get_graph(source='files/pypi_v2.csv', min=6):
     graph = nx.DiGraph()
     csv = pd.read_csv(source)
     edges = list(
@@ -66,15 +68,17 @@ def get_graph(source='files/e_requirements_pypi.csv', min=6):
     deg = graph.degree()
     to_remove = [n[0] for n in deg if n[1] < min]
     graph.remove_nodes_from(to_remove)
-    graph.remove_nodes_from(list(nx.isolates(graph)))
+    # graph.remove_nodes_from(list(nx.isolates(graph)))
     return graph
 
 
-def get_r_graph(source='files/e_requirements_pypi.csv', min=6):
+# get reversed graph of dependencies.
+def get_r_graph(source='files/pypi_v2.csv', min=6):
     return get_graph(source, min).reverse()
 
 
-def get_layer():
+# get depth of each package in graph.
+def get_depth():
     graph = get_graph(min=0)
     gnodes = defaultdict(dict)
     finish = Queue()

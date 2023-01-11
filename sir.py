@@ -3,17 +3,18 @@ import random
 
 import networkx as nx
 import numpy as np
-from pypi.tree import get_graph, tree
+from pypi.tree import tree
+from pypi.util import get_graph
 
 
 def spread(G, beta, target, gamma=0.0):
     # colors = {"R": 'b', "I": 'r', "S": 'g'}
 
     y = []
-    n = len(G.nodes)  # 总人数
-    for i in G.nodes:  # 所有人默认为易感染
+    n = len(G.nodes)
+    for i in G.nodes:
         G.nodes[i]['state'] = 'S'
-    s = n - 1  # 易感染人数
+    s = n - 1
 
     i_nodes = set()
     ai = set()
@@ -23,14 +24,11 @@ def spread(G, beta, target, gamma=0.0):
         i_nodes.add(t)
     y.append((s, (len(i_nodes)), 0))
     ai = ai.union(i_nodes)
-    # 开始传播，直到所有人被传染
 
     r_nodes = nx.Graph()
     while len(i_nodes) != 0:
-        # 当前轮被传染的人数
         i_temp = set()
         for i in i_nodes:
-            # 按beta概率传染I节点的邻居节点
             for node in G.in_edges(i):
                 node = node[0]
                 r = random.random()
@@ -45,7 +43,6 @@ def spread(G, beta, target, gamma=0.0):
         r = len(r_nodes.nodes)
         y.append((s, i, r))
 
-        # 当前恢复人数 gamma 概率
         to_remove = []
         for i in i_nodes:
             if random.random() < gamma:
@@ -54,7 +51,7 @@ def spread(G, beta, target, gamma=0.0):
                 G.nodes[i]['state'] = 'R'
         for node in to_remove:
             i_nodes.remove(node)
-        # states = nx.get_node_attributes(G, 'state')  ############ 获得节点的属性
+        # states = nx.get_node_attributes(G, 'state')
         # color = [colors[states[i]] for i in range(n)]
         # nx.draw(G, ps, node_color=color, with_labels=True, node_size=300)
         # plt.show()
@@ -113,6 +110,3 @@ if __name__ == '__main__':
     # plt.xlabel('time')
     # plt.ylabel('number of packages')
     # plt.show()
-
-# numpy 28176.7
-# sphinx 25115.3

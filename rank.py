@@ -15,6 +15,8 @@ def local_centrality(G):
             for n2 in G.in_edges(n1):
                 n2 = n2[0]
                 cnt.add(n2)
+        if node in cnt:
+            cnt.remove(node)
         n[node] = len(cnt)
     q = defaultdict(int)
     for node in G.nodes():
@@ -45,11 +47,13 @@ def write_rank(res, name):
 
 
 def rank():
-    G = get_graph(source='files/pypi_v2.csv', min=0)
-
+    G = get_graph(source='files/f_requirements_pypi.csv', min=0)
+    print(len(G.nodes))
+    print(len(G.edges))
     write_rank(nx.degree_centrality(G), 'degree')
     write_rank(nx.pagerank(G, alpha=0.85), 'pagerank')
     write_rank(local_centrality(G), 'local_centrality')
+    return
     write_rank(nx.betweenness_centrality(G, normalized=False), 'betweenness')
     write_rank(nx.closeness_centrality(G), 'closeness')
 
