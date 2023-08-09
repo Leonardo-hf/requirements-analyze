@@ -33,7 +33,21 @@ _PIP_OPTIONS = (
 P = Union[str, Path]
 
 
-def find_requirements(path: P) -> List[DetectedRequirement]:
+def parse_requirements_from(path, name, parse):
+    requirements = []
+    target = path / name
+    while target.exists() and target.is_file():
+        try:
+            requirements.extend(parse(target))
+        except CouldNotParseRequirements as e:
+            pass
+        name = name + '#'
+        target = path / name
+    requirements.sort()
+    return requirements
+
+
+def find_requirements(path: P) -> (List[DetectedRequirement], str):
     """
     This method tries to determine the requirements of a particular project
     by inspecting the possible places that they could be defined.
@@ -55,51 +69,37 @@ def find_requirements(path: P) -> List[DetectedRequirement]:
     if isinstance(path, str):
         path = Path(path)
 
-    setup_py = path / "setup.py"
-    if setup_py.exists() and setup_py.is_file():
-        try:
-            requirements = from_setup_py(setup_py)
-            requirements.sort()
-            if len(requirements) != 0:
-                return requirements
-        except CouldNotParseRequirements:
-            pass
-
-    poetry_toml = path / "pyproject.toml"
-    if poetry_toml.exists() and poetry_toml.is_file():
-        try:
-            requirements = from_pyproject_toml(poetry_toml)
-            if len(requirements) > 0:
-                requirements.sort()
-                return requirements
-        except CouldNotParseRequirements:
-            pass
-
-    for reqfile_name in ("requirements.txt", "requirements.pip"):
-        reqfile = path / reqfile_name
-        if reqfile.exists and reqfile.is_file():
-            try:
-                requirements = from_requirements_txt(reqfile)
-                if len(requirements) > 0:
-                    requirements.sort()
-                    return requirements
-            except CouldNotParseRequirements:
-                pass
-
-    requirements_dir = path / "requirements"
-    if requirements_dir.exists() and requirements_dir.is_dir():
-        from_dir = from_requirements_dir(requirements_dir)
-        if from_dir is not None:
-            requirements += from_dir
-
-    from_blob = from_requirements_blob(path)
-    if from_blob is not None:
-        requirements += from_blob
-
-    requirements = list(set(requirements))
+    requirements = parse_requirements_from(path, 'pyproject.toml', from_pyproject_toml)
     if len(requirements) > 0:
-        requirements.sort()
-        return requirements
+        return requirements, 'pyproject.toml'
+
+    for reqfile_name in ("requires.txt", "requirements.pip"):
+        requirements.extend(parse_requirements_from(path, reqfile_name, from_requirements_txt))
+    if len(requirements) > 0:
+        return requirements, 'requires.txt'
+
+    requirements = parse_requirements_from(path, 'setup.cfg', from_setup_cfg)
+    if len(requirements) > 0:
+        return requirements, 'setup_cfg'
+
+    requirements = parse_requirements_from(path, 'setup.py', from_setup_py)
+    if len(requirements) > 0:
+        return requirements, 'setup.py'
+
+    # requirements_dir = path / "requirements"
+    # if requirements_dir.exists() and requirements_dir.is_dir():
+    #     from_dir = from_requirements_dir(requirements_dir)
+    #     if from_dir is not None:
+    #         requirements += from_dir
+    #
+    # from_blob = from_requirements_blob(path)
+    # if from_blob is not None:
+    #     requirements += from_blob
+    #
+    # requirements = list(set(requirements))
+    # if len(requirements) > 0:
+    #     requirements.sort()
+    #     return requirements, 'requirements.txt'
 
     raise RequirementsNotFound
 
@@ -135,10 +135,17 @@ def from_pyproject_toml(toml_file: P) -> List[DetectedRequirement]:
         if req is not None:
             requirements.append(req)
 
+    project_section = parsed.get('project', {}).get("dependencies", [])
+
+    for req in project_section:
+        req = DetectedRequirement.parse(req, toml_file)
+        if req is not None:
+            requirements.append(req)
     return requirements
 
 
 def from_requirements_txt(requirements_file: P) -> List[DetectedRequirement]:
+
     # see http://www.pip-installer.org/en/latest/logic.html
     requirements = []
 
@@ -147,16 +154,17 @@ def from_requirements_txt(requirements_file: P) -> List[DetectedRequirement]:
 
     with requirements_file.open() as f:
         for req in f.readlines():
-            if req.strip() == "":
+            req = req.strip()
+            if req == "":
                 # empty line
                 continue
-            if req.strip().startswith("#"):
+            if req.startswith("#"):
                 # this is a comment
                 continue
-            if req.strip().split()[0] in _PIP_OPTIONS:
+            if req.split()[0] in _PIP_OPTIONS:
                 # this is a pip option
                 continue
-            if req.strip().startswith("["):
+            if req.startswith('[') and not req.startswith('[:'):
                 # this is not necessary requirements
                 break
             detected = DetectedRequirement.parse(req, requirements_file)
@@ -191,7 +199,7 @@ def from_requirements_blob(path: P) -> List[DetectedRequirement]:
     for entry in path.iterdir():
         if not entry.is_file():
             continue
-        m = re.match(r"^(\w*)req(uire|uirement)?s(\w*)\.txt$", entry.name)
+        m = re.match(r"^(\w*)req(uirement)?s(\w*)\.txt$", entry.name)
         if m is None:
             continue
         if m.group(1).startswith("test") or m.group(3).endswith("test"):
@@ -219,5 +227,3 @@ def from_setup_cfg(requirements_file: P) -> List[DetectedRequirement]:
                     continue
                 requirements.append(detected)
     return requirements
-
-
