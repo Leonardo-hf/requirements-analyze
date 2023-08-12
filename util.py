@@ -170,7 +170,7 @@ def tree(target, graph, limit=None) -> (int, int, nx.DiGraph):
 
 
 headers = {
-    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.0.0 '
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 '
                   'Safari/537.36',
 }
 
@@ -192,7 +192,7 @@ def spider(url):
             return html
         except Exception as e:
             print(e)
-            time.sleep(3)
+            # time.sleep(3)
 
 
 def download(url, path, chunk_s=1024):

@@ -1,20 +1,25 @@
 import json
+from ctypes import *
 
 from util import spider, ensure_dir
 
 
-def search_all():
-    start = '2019-04-10T19:08:52.997264Z'
+def search_all(start='2019-04-10T19:08:52.997264Z'):
     while True:
-        url = 'https://index.golang.org/index?since={}'.format(start)
+        url = 'http://index.golang.org/index?since={}'.format(start)
         lines = spider(url).text.split('\n')
-        if len(lines) == 0:
+        if len(lines) <= 1:
             break
         with open('go/index', 'a') as f:
             for l in lines:
                 if len(l.strip()) == 0:
                     continue
-                l = json.loads(l.strip())
+                try:
+                    l = json.loads(l.strip())
+                except Exception as e:
+                    print(e)
+                    print(l)
+                    continue
                 artifact = l['Path']
                 version = l['Version']
                 time = l['Timestamp']
@@ -24,108 +29,61 @@ def search_all():
 
 def get_deps(artifact, version):
     url = 'https://goproxy.cn/{}/@v/{}.mod'.format(artifact, version)
-    content = spider(url).text.split('\n')
-    require = False
-    exclude = False
-    replace = False
-    retract = False
-    go_version = ''
-    deps = {}
-    discard = set()
-
-    def handle_require(l, exclude=False):
-        l = l.split(' ')
-        ta = l[0]
-        tv = l[1]
-        indirect = len(l) >= 4 and l[3] == 'indirect'
-        deps[ta + '@' + tv] = {
-            'artifact': ta,
-            'version': tv,
-            'indirect': indirect,
-            'exclude': exclude
-        }
-
-    def handle_replace(l):
-        l = l.split(' ')
-        oa = l[0]
-        tod = ''
-        if len(l) == 3:
-            for key in deps.keys():
-                if key.startswith(oa + '@'):
-                    tod = key
+    content = spider(url).content
+    lib = CDLL("./lib/libmod.so")
+    lib.Parse.restype = c_char_p
+    res = lib.Parse(c_char_p(content))
+    res = json.loads(res.decode())
+    reqs = []
+    if 'Require' in res and res['Require']:
+        for r in res['Require']:
+            reqs.append({'artifact': r['Mod']['Path'], 'version': r['Mod']['Version'],
+                         'indirect': r['Indirect'], 'exclude': False})
+    if 'Replace' in res and res['Replace']:
+        for r in res['Replace']:
+            old = {'artifact': r['Old']['Path'], 'version': r['Old'].setdefault('Version', '')}
+            new = {'artifact': r['New']['Path'], 'version': r['New'].setdefault('Version', '')}
+            index = -1
+            for i in range(len(reqs)):
+                if reqs[i]['artifact'] == old['artifact']:
+                    index = i
                     break
-        elif len(l) == 4:
-            na = l[2]
-            nv = l[3]
-            for key in deps.keys():
-                if key.startswith(oa + '@'):
-                    deps[na + '@' + nv] = {
-                        'artifact': na,
-                        'version': nv,
-                        'indirect': deps[key]['indirect'],
-                        'exclude': False
-                    }
-                    tod = key
+            if index == -1:
+                continue
+            if new['artifact'] and new['artifact'].startswith('.'):
+                del reqs[index]
+                continue
+            reqs[index]['artifact'] = new['artifact']
+            reqs[index]['version'] = new['version']
+    if 'Exclude' in res and res['Exclude']:
+        for e in res['Exclude']:
+            index = -1
+            for i in range(len(reqs)):
+                if reqs[i]['artifact'] == e['Mod']['Path']:
+                    index = i
                     break
-        elif len(l) == 5:
-            ov = l[1]
-            tod = oa + '@' + ov
-            na = l[3]
-            if not na.startswith('.'):
-                nv = l[4]
-                deps[na + '@' + nv] = {
-                    'artifact': na,
-                    'version': nv,
-                    'indirect': deps[tod]['indirect'],
-                    'exclude': False
-                }
-        if tod in deps:
-            del deps[tod]
-
-    for line in content:
-        line = line.strip()
-        if len(line) == 0 or (len(line) == 1 and line[0] == ')'):
-            require = False
-            exclude = False
-            replace = False
-            retract = False
-        elif line.startswith('require ('):
-            require = True
-        elif line.startswith('require'):
-            handle_require(line[8:])
-        elif line.startswith('exclude ('):
-            exclude = True
-        elif line.startswith('exclude'):
-            handle_require(line[8:], True)
-        elif require or exclude:
-            handle_require(line, exclude)
-        elif line.startswith('replace ('):
-            replace = True
-        elif line.startswith('replace'):
-            handle_replace(line[8:])
-        elif replace:
-            handle_replace(line)
-        elif line.startswith('retract ('):
-            retract = True
-        elif line.startswith('retract'):
-            discard.add(line[8:])
-        elif retract:
-            discard.add(line)
-        elif line.startswith('go'):
-            go_version = line.split(' ')[1]
-
+            indirect = False
+            if index != -1:
+                indirect = True
+            reqs.append({'artifact': e['Mod']['Path'], 'version': e['Mod']['Version'],
+                         'indirect': indirect, 'exclude': True})
+    if 'Retract' in res and res['Retract']:
+        with open('go/retract', 'a') as f:
+            for r in res['Retract']:
+                f.write('{},{},{},{}\n'.format(artifact, r['Low'], r['High'], r['Rationale']))
+    if 'Go' in res and res['Go']:
+        with open('go/go_version', 'a') as f:
+            f.write('{},{},{}\n'.format(artifact, version, res['Go']['Version']))
     with open('go/deps', 'a') as f:
-        for d in deps.values():
-            f.write('{},{},{},{},{},{}\n'.format(artifact, version, d['artifact'], d['version'], d['indirect'],
-                                                 d['exclude']))
-    with open('go/extra', 'a') as f:
-        if len(discard) > 0:
-            for d in discard:
-                f.write('discord: {},{}\n'.format(artifact, d))
-        if go_version != '':
-            f.write('go: {},{},{}\n'.format(artifact, version, go_version))
+        for r in reqs:
+            f.write('{},{},{},{},{},{}\n'.format(artifact, version, r['artifact'], r['version'], r['indirect'],
+                                                 r['exclude']))
 
 
 if __name__ == '__main__':
     ensure_dir('go')
     search_all()
+    with open('go/index', 'r') as f:
+        for l in f.readlines():
+            l = l.strip().split(',')
+            get_deps(l[0].strip(), l[1].strip())
