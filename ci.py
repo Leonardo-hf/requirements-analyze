@@ -1,37 +1,12 @@
 import heapq
 import math
-from collections import defaultdict
+from functools import reduce
 from typing import List
 
 import networkx as nx
 import tqdm
 
-from util import tree
-
-
-def _ci_score(graph: nx.DiGraph, node: str, r: int) -> int:
-    return _ci_scores(graph, [node], r)[node]
-
-
-def _ci_scores(graph, nodes, r) -> dict:
-    deg = graph.in_degree
-    scores = defaultdict(int)
-    for node in nodes:
-        score = 0
-        borders = _borders(graph, node, r)
-        for b in borders:
-            score += deg[b] - 1
-        scores[node] = score * (deg[node] - 1)
-    return scores
-
-
-def _borders(graph: nx.DiGraph, node: str, r: int) -> set:
-    borders = set()
-    _, _, sub = tree(node, graph, limit=r - 1)
-    for s in sub.nodes:
-        if graph.in_degree(s):
-            borders.update(list(map(lambda n: n[1], graph.in_edges(s))))
-    return borders
+from util import bfs
 
 
 class CINode(object):
@@ -57,31 +32,55 @@ def heapify(scores: dict) -> List[CINode]:
     return ci_nodes
 
 
-def ci(graph: nx.DiGraph, r: int = 3) -> dict:
-    r_graph = graph.reverse()
-    nodes = graph.nodes
-    scores = _ci_scores(graph, nodes, r)
+def ci(graph: nx.Graph, r: int = 3) -> []:
+    scores = _ci_scores(graph, list(graph), r)
     heap = heapify(scores)
     modified = set()
-    res = {}
+    res = []
     sum_scores = sum(scores.values())
-    sum_degree = sum(map(lambda x: x[1], graph.in_degree))
-    # proc = tqdm.tqdm(desc='ci_nodes')
-    while math.pow(sum_scores / sum_degree, 1 / (r + 1)) > 1:
+    sum_degree = sum(map(lambda x: x[1], graph.degree))
+    # 判断图是否被破坏
+    while sum_degree != 0 and math.pow(sum_scores / sum_degree, 1 / (r + 1)) > 1:
         top = heapq.heappop(heap)
+        # 删除节点对其他节点的 CI 值造成影响，此处做延迟修改
         if top.name in modified:
             new_score = _ci_score(graph, top.name, r)
             sum_scores -= top.score - new_score
             heapq.heappush(heap, CINode(top.name, new_score))
             modified.remove(top.name)
             continue
-        res[top.name] = top.score
+        print(sum_scores, sum_degree, top.name, top.score)
+        res.append((top.name, top.score))
         sum_scores -= top.score
-        _, _, sub = tree(top.name, r_graph, r)
-        # borders = _borders(r_graph, top.name, r)
+
+        # 删除节点，对距离在 r 之内的节点的 CI 值造成影响，将之标记
+        sub = bfs(top.name, graph, r)
         for s in sub:
             modified.add(s)
+        # 删除节点
         graph.remove_node(top.name)
-        r_graph.remove_node(top.name)
-        # proc.update(1)
+        # 重新计算 sum_degree
+        sum_degree = sum(map(lambda x: x[1], graph.degree))
     return res
+
+
+def _ci_score(graph: nx.Graph, node: str, r: int) -> int:
+    return _ci_scores(graph, [node], r)[node]
+
+
+def _ci_scores(graph: nx.Graph, nodes, r) -> dict:
+    deg = graph.degree
+    scores = {}
+    node_iter = nodes
+    if len(nodes) > 1:
+        node_iter = tqdm.tqdm(nodes)
+    for node in node_iter:
+        # 查看与目标节点距离为 r 的所有节点
+        s = list(filter(
+            lambda i: i[1] == 3, nx.single_target_shortest_path_length(graph, node, cutoff=r)))
+        if len(s) == 0:
+            scores[node] = 0
+            continue
+        score = reduce(lambda a, b: a + b, map(lambda t: deg[t[0]] - 1, s))
+        scores[node] = (deg[node] - 1) * score
+    return scores

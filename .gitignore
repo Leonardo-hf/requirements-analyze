@@ -15,9 +15,19 @@ __pycache__
 
 test*
 
+.idea
 files/
 resource/
 go/
+python/
+java/
 rust/
+js/
 rank/
 temp/
+venv/
+valid/
+
+github/main.go
+github/.idea
+github/resources

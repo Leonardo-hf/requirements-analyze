@@ -3,7 +3,7 @@ from typing import List
 import toml
 from astroid import MANAGER
 from astroid.builder import AstroidBuilder
-from semver import parse_constraint
+from .poetry_semver import parse_constraint
 
 from requirements_detector.handle_setup import SetupWalker
 
@@ -82,25 +82,35 @@ def from_pyproject_toml(text) -> List[DetectedRequirement]:
     parsed = toml.loads(text)
     poetry_section = parsed.get("tool", {}).get("poetry", {})
     dependencies = poetry_section.get("dependencies", {})
+
     # dependencies.update(poetry_section.get("dev-dependencies", {}))
+
+    def handle_version(spec):
+        parsed_spec = str(parse_constraint(spec))
+        if "," not in parsed_spec and "<" not in parsed_spec and ">" not in parsed_spec and "=" not in parsed_spec:
+            parsed_spec = f"=={parsed_spec}"
+        return f"{name}{parsed_spec}"
 
     for name, spec in dependencies.items():
         if name.lower() == "python":
             continue
+        # [
+        #   { version = "^0.24.1", python = "~3.7" },
+        #   { version = ">= 0.25.0, < 1.0", python = "^3.8" },
+        # ]
+        if isinstance(spec, list):
+            for s in spec:
+                if isinstance(s, dict):
+                    req = DetectedRequirement.parse(handle_version(s.get('version', '*')))
+                    if req is not None:
+                        requirements.append(req)
+            continue
+        #   { version = "^0.24.1", python = "~3.7" },
         if isinstance(spec, dict):
-            spec = spec["version"]
-            if "version" in spec:
-                spec = spec["version"]
-            else:
-                req = DetectedRequirement.parse(f"{name}")
-                if req is not None:
-                    requirements.append(req)
-                    continue
-        parsed_spec = str(parse_constraint(spec))
-        if "," not in parsed_spec and "<" not in parsed_spec and ">" not in parsed_spec and "=" not in parsed_spec:
-            parsed_spec = f"=={parsed_spec}"
+            spec = spec.get('version', '*')
 
-        req = DetectedRequirement.parse(f"{name}{parsed_spec}")
+        # "^0.24.1"
+        req = DetectedRequirement.parse(handle_version(spec))
         if req is not None:
             requirements.append(req)
 
